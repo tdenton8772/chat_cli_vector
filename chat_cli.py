@@ -3,8 +3,8 @@ import uuid
 import json
 import redis
 from gpt_abstraction import engine_abstraction
-from memory_summarizer import summarize_exchange
 
+from hybrid_memory import save_message, build_context, vector_store
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
@@ -21,26 +21,6 @@ def get_conversation_list():
 def load_conversation(conv_id):
     raw = r.get(f"convo:{conv_id}")
     return json.loads(raw) if raw else []
-
-def save_message(conv_id, role, content):
-    key = f"convo:{conv_id}"
-    history = load_conversation(conv_id)
-
-    # If this is the assistant replying to a previous user message, summarize both
-    if role == "assistant" and len(history) > 0 and history[-1]["role"] == "user":
-        user_input = history[-1]["content"]
-        assistant_reply = content
-        summary = summarize_exchange(user_input, assistant_reply)
-        history.append({"role": "memory", "content": summary})
-
-        # Optionally: prune user+assistant turns to keep memory clean
-        history = [msg for msg in history if msg["role"] == "memory"]
-    elif role == "user":
-        history.append({"role": "user", "content": content})
-
-    # Limit total entries (20 summaries ~= 1000 tokens or less)
-    history = history[-MAX_HISTORY:]
-    r.set(key, json.dumps(history))
 
 def choose_model():
     print("Available models:")
@@ -140,25 +120,22 @@ Available commands:
                     if msg["role"] == "memory":
                         print(f"{i+1}. {msg['content']}")
                 continue
+            elif cmd == "/vectors":
+                vector_store.debug_dump()
+                continue
             else:
                 print("Unknown command. Type /help for options.")
                 continue
-
-        # Regular prompt flow
-        save_message(conv_id, "user", user_input)
-        # Use memory entries as context for this prompt
-        context = [m for m in load_conversation(conv_id) if m["role"] == "memory"]
-        context.append({"role": "user", "content": user_input})
-
-        print(context)
-        try:
-            response = engine_abstraction(model=model, prompt=context)
-        except Exception as e:
-            print("Error:", e)
-            continue
-
-        print("AI:", response)
-        save_message(conv_id, "assistant", response)
+        else:    
+            save_message(conv_id, "user", user_input)
+            context = build_context(conv_id, user_input)
+            try:
+                response = engine_abstraction(model=model, prompt=context)
+            except Exception as e:
+                print("Error:", e)
+                continue
+            print("AI:", response)
+            save_message(conv_id, "assistant", response)
 
         
 def delete_conversation(conv_id):

@@ -5,6 +5,8 @@ from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
 from wrapt_timeout_decorator import timeout
 import json
 
+from config import OLLAMA_EMBEDDING_URL, OLLAMA_MODEL, OLLAMA_GENERATE_URL
+
 # Set keys via environment or elsewhere
 openai.api_key = os.getenv("OPENAI_API_KEY")
 anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
@@ -44,10 +46,11 @@ def _call_claude(model, prompt, temperature, max_tokens):
     return response.completion
 
 def _call_mistral_local(prompt, temperature, max_tokens):
-    url = "http://ollama:11434/api/generate"
+    url = OLLAMA_GENERATE_URL
     
     # Convert message list into a flat prompt
     if isinstance(prompt, list):
+        
         memory_text = []
         for m in prompt:
             if m["role"] == "memory":
@@ -61,12 +64,10 @@ def _call_mistral_local(prompt, temperature, max_tokens):
         flat_prompt = prompt
 
     payload = {
-        "model": "mistral",
+        "model": OLLAMA_MODEL,
         "prompt": flat_prompt,
         "stream": False
     }
-
-    print(f"Sending to Mistral:\n{flat_prompt}\n")
 
     response = requests.post(url, json=payload)
     response.raise_for_status()

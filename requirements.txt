@@ -4,3 +4,5 @@ redis
 requests
 wrapt-timeout-decorator
 nltk
+faiss-cpu
+numpy
