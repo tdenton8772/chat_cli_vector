@@ -53,7 +53,7 @@ def build_context(conv_id, user_input, top_k=4):
     # Embed input and query vector store
     try:
         query_embedding = get_embedding(user_input)
-        vector_hits = vector_store.search(query_embedding, top_k=top_k)
+        vector_hits = vector_store.search(query_embedding, top_k=top_k, conv_id=conv_id)
 
         # Filter out hits that match the input text exactly (or closely)
         vector_memory = []

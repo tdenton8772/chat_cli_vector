@@ -32,12 +32,26 @@ class FaissVectorStore(VectorStore):
         })
         self._persist()
 
-    def search(self, embedding: list[float], top_k: int = 5) -> list[dict]:
+    def search(self, embedding: list[float], top_k: int = 5, conv_id: str = None) -> list[dict]:
         if self.index.ntotal == 0:
             return []
+
         emb_np = np.array([embedding]).astype("float32")
-        D, I = self.index.search(emb_np, top_k)
-        return [self.texts[i] for i in I[0] if i < len(self.texts)]
+        D, I = self.index.search(emb_np, top_k * 2)  # over-fetch for filtering
+
+        results = []
+        for i in I[0]:
+            if i >= len(self.texts):
+                continue
+            hit = self.texts[i]
+            if conv_id and hit["metadata"].get("conv_id") != conv_id:
+                continue
+            results.append(hit)
+            if len(results) >= top_k:
+                break
+
+        return results
+
 
     def _persist(self):
         faiss.write_index(self.index, self.persist_path)
