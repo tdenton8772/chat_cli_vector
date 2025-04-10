@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  cli:
+    build: .
+    container_name: rag_cli
+    volumes:
+      - .:/app
+      - nltk_data:/root/nltk_data  # ← Persist NLTK downloads
+    environment:
+      - OPENAI_API_KEY=your-openai-key
+      - ANTHROPIC_API_KEY=your-anthropic-key
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+      - ollama
+    entrypoint: ["/app/entrypoint.sh"]
+    stdin_open: true
+    tty: true
+
+volumes:
+  redis_data:
+  ollama_data:
+  nltk_data:
